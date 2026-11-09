@@ -404,4 +404,50 @@ class AircraftTest {
         verifyNoInteractions(navigationSystem, landingGear);
     }
 
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void cruise_whenFuelConsumptionSucceeds_shouldNotifyObserver() {
+        // Arrange
+        Engine engine = mock(Engine.class);
+        LandingGear landingGear = mock(LandingGear.class);
+        NavigationSystem navigationSystem = mock(NavigationSystem.class);
+
+        // Mock observer receives a reference-type argument
+        java.util.function.Consumer<Double> observer =
+                mock(java.util.function.Consumer.class);
+
+        // Real fuel system with a test-only observer
+        FuelSystem fuelSystem = new FuelSystem(20.0, 5.0) {
+            @Override
+            public void consumeFuel(double amount) {
+                super.consumeFuel(amount);
+                observer.accept(amount);
+            }
+        };
+
+        when(engine.isOperational()).thenReturn(true);
+        when(navigationSystem.isRouteAvailable()).thenReturn(true);
+
+        Aircraft aircraft = new Aircraft(
+                engine, fuelSystem, landingGear, navigationSystem
+        );
+
+        aircraft.prepareForTakeoff();
+        aircraft.takeOff();
+
+        // Act
+        aircraft.cruise(7.5);
+
+        // Assert actual fuel consumption
+        assertEquals(FlightStatus.IN_FLIGHT, aircraft.getStatus());
+        assertEquals(12.5, fuelSystem.getRemainingFuel());
+
+        // Verify observer interaction with literal any()
+        verify(observer, times(1)).accept(any());
+
+        // Also verify the exact observed value
+        verify(observer, times(1)).accept(7.5);
+    }
+
 }
